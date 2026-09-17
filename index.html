@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Material Docente Sanitario</title>
+    <meta name="theme-color" content="#12685f" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css?v=7" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navegacion principal">
+        <div class="brand">
+          <div class="brand-mark">MD</div>
+          <div>
+            <strong>Material Docente</strong>
+            <span>Almacen sanitario</span>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button class="nav-button active" data-view="dashboard" type="button">Inicio</button>
+          <button class="nav-button" data-view="scanner" type="button">Escanear</button>
+          <button class="nav-button" data-view="inventory" type="button">Material</button>
+          <button class="nav-button" data-view="locations" type="button">Ubicaciones</button>
+          <button class="nav-button" data-view="loans" type="button">Prestamos</button>
+          <button class="nav-button" data-view="practice" type="button">Practica</button>
+          <button class="nav-button" data-view="labels" type="button">Etiquetas QR</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Gestion de almacen docente</p>
+            <h1 id="viewTitle">Inicio</h1>
+          </div>
+          <div class="top-actions">
+            <button class="ghost-button" id="exportButton" type="button">Exportar</button>
+            <label class="import-button">
+              Importar
+              <input id="importInput" type="file" accept="application/json" />
+            </label>
+          </div>
+        </header>
+
+        <section class="view active" id="dashboard">
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span>Materiales</span>
+              <strong id="statItems">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>Ubicaciones</span>
+              <strong id="statLocations">0</strong>
+            </article>
+            <article class="stat-card">
+              <span>Prestados</span>
+              <strong id="statLoaned">0</strong>
+            </article>
+            <article class="stat-card alert">
+              <span>Retrasados</span>
+              <strong id="statLate">0</strong>
+            </article>
+          </div>
+          <div class="category-legend" aria-label="Clasificacion por colores">
+            <span class="legend-red">ROJO Circulatorio</span>
+            <span class="legend-blue">AZUL Respiratorio</span>
+            <span class="legend-green">VERDE Otros</span>
+            <span class="legend-yellow">AMARILLO Pediatrico</span>
+          </div>
+
+          <div class="work-grid">
+            <section class="panel search-panel">
+              <div class="panel-heading">
+                <h2>Buscar material</h2>
+                <button class="ghost-button" id="enrichAllButton" type="button">Completar desde internet</button>
+              </div>
+              <div class="search-row">
+                <input id="globalSearch" type="search" placeholder="Ej. fonendo, guantes, sonda..." />
+                <button id="clearSearch" type="button">Limpiar</button>
+              </div>
+              <div id="internetStatus" class="internet-status" aria-live="polite"></div>
+              <div id="featuredResult" class="featured-result"></div>
+              <div id="searchResults" class="result-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Alertas</h2>
+              </div>
+              <div id="alertsList" class="alert-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="scanner">
+          <div class="scanner-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Escanear QR</h2>
+              </div>
+              <div class="scanner-box">
+                <video id="scannerVideo" playsinline muted></video>
+                <div class="scan-frame"></div>
+              </div>
+              <div class="button-row">
+                <button id="startScan" type="button">Iniciar camara</button>
+                <button class="ghost-button" id="stopScan" type="button">Detener</button>
+              </div>
+              <p class="hint" id="scanSupport"></p>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Entrada manual</h2>
+              </div>
+              <div class="form-grid one">
+                <label>
+                  Codigo de ubicacion
+                  <input id="manualQr" type="text" placeholder="Ej. LOC-CAJA-A03" />
+                </label>
+                <button id="manualQrButton" type="button">Abrir ubicacion</button>
+              </div>
+              <div id="scanResult" class="location-detail"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="inventory">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Nuevo material</h2>
+              </div>
+              <form id="itemForm" class="form-grid">
+                <input type="hidden" id="itemId" />
+                <label>
+                  Nombre
+                  <input id="itemName" required type="text" placeholder="Mascarillas FFP2" />
+                </label>
+                <label>
+                  Categoria visual
+                  <select id="itemCategory">
+                    <option value="Otros">VERDE Otros</option>
+                    <option value="Circulatorio">ROJO Circulatorio</option>
+                    <option value="Respiratorio">AZUL Respiratorio</option>
+                    <option value="Pediatrico">AMARILLO Pediatrico</option>
+                  </select>
+                </label>
+                <label>
+                  Cantidad total
+                  <input id="itemQuantity" min="0" required type="number" />
+                </label>
+                <label>
+                  Stock minimo
+                  <input id="itemMinStock" min="0" type="number" />
+                </label>
+                <label>
+                  Ubicacion
+                  <select id="itemLocation" required></select>
+                </label>
+                <label>
+                  Lote opcional
+                  <input id="itemLot" type="text" />
+                </label>
+                <label>
+                  Caducidad opcional
+                  <input id="itemExpiry" type="date" />
+                </label>
+                <label class="wide">
+                  Observaciones
+                  <textarea id="itemNotes" rows="3"></textarea>
+                </label>
+                <label class="wide">
+                  Descripcion automatica
+                  <textarea id="itemDescription" rows="3" placeholder="Se puede completar desde internet automaticamente."></textarea>
+                </label>
+                <label class="wide">
+                  Imagen automatica
+                  <input id="itemImage" type="url" placeholder="Se puede completar desde internet automaticamente." />
+                </label>
+                <div class="button-row wide">
+                  <button type="submit">Guardar material</button>
+                  <button class="ghost-button" id="enrichCurrentItem" type="button">Buscar imagen y descripcion</button>
+                  <button class="ghost-button" id="resetItemForm" type="button">Nuevo</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Inventario</h2>
+              </div>
+              <div id="itemsTable" class="table-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="locations">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Nueva ubicacion</h2>
+              </div>
+              <form id="locationForm" class="form-grid one">
+                <input type="hidden" id="locationId" />
+                <label>
+                  Nombre
+                  <input id="locationName" required type="text" placeholder="Caja A-03" />
+                </label>
+                <label>
+                  Tipo
+                  <select id="locationType">
+                    <option>Caja</option>
+                    <option>Estanteria</option>
+                    <option>Balda</option>
+                    <option>Armario</option>
+                  </select>
+                </label>
+                <label>
+                  Ruta exacta
+                  <input id="locationPath" required type="text" placeholder="Pasillo 1 / Estanteria 2 / Caja A-03" />
+                </label>
+                <label>
+                  Codigo QR
+                  <input id="locationCode" required type="text" placeholder="LOC-CAJA-A03" />
+                </label>
+                <button type="submit">Guardar ubicacion</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Ubicaciones</h2>
+              </div>
+              <div id="locationsList" class="card-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="loans">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Prestar material</h2>
+              </div>
+              <form id="loanForm" class="form-grid">
+                <input type="hidden" id="loanId" />
+                <label>
+                  Material
+                  <select id="loanItem" required></select>
+                </label>
+                <label>
+                  Cantidad
+                  <input id="loanQuantity" min="1" required type="number" />
+                </label>
+                <label>
+                  Tutor
+                  <input id="loanTutor" required type="text" placeholder="Nombre del tutor" />
+                </label>
+                <label>
+                  Fecha de salida
+                  <input id="loanOutDate" required type="date" />
+                </label>
+                <label>
+                  Fecha prevista de regreso
+                  <input id="loanDueDate" required type="date" />
+                </label>
+                <label>
+                  Fecha real de regreso
+                  <input id="loanReturnDate" type="date" />
+                </label>
+                <label class="wide">
+                  Observaciones
+                  <textarea id="loanNotes" rows="3"></textarea>
+                </label>
+                <div class="button-row wide">
+                  <button type="submit">Guardar prestamo</button>
+                  <button class="ghost-button" id="resetLoanForm" type="button">Nuevo</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Prestamos activos</h2>
+              </div>
+              <div id="loansList" class="card-list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="practice">
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Entrega de alumnos</h2>
+              </div>
+              <form id="practiceSettingsForm" class="form-grid one">
+                <label>
+                  Grupo por defecto
+                  <select id="practiceStudent">
+                    <option value="Grupo 1">Grupo 1</option>
+                    <option value="Grupo 2">Grupo 2</option>
+                    <option value="Grupo 3">Grupo 3</option>
+                    <option value="Grupo 4">Grupo 4</option>
+                  </select>
+                </label>
+                <label>
+                  URL de Google Apps Script
+                  <input id="practiceEndpoint" type="url" placeholder="https://script.google.com/macros/s/..." />
+                </label>
+                <button type="submit">Guardar configuracion</button>
+              </form>
+              <p class="hint">Esta configuracion se guarda en el movil. El QR de una caja abre directamente el formulario de esa caja.</p>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <h2>Como se usa</h2>
+              </div>
+              <div class="info-card">
+                <p>El alumno escanea el QR de una caja, identifica cada material, anota unidades, estado y observaciones, revisa o cambia descripcion e imagen, y envia la entrega a Google Sheets.</p>
+              </div>
+              <div id="practiceStatus" class="internet-status" aria-live="polite"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="labels">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Etiquetas para cajas y estanterias</h2>
+              <button id="printLabels" type="button">Imprimir</button>
+            </div>
+            <p class="hint">La etiqueta muestra el codigo de ubicacion. Para QR reales, esta primera version permite escanear codigos ya impresos con ese mismo texto.</p>
+            <div id="labelsGrid" class="labels-grid"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="qrcode.js?v=7"></script>
+    <script src="app.js?v=7"></script>
+  </body>
+</html>
