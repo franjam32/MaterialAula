@@ -148,6 +148,190 @@ function exportRows`
 })();
 <\/script>`;
    html = html.replace('</body>', colorFix + '\n</body>');
+   const catalogFix = `
+<script>
+(function(){
+  const SUPA_URL='https://ptvroyhrtjtotcorriey.supabase.co';
+  const SUPA_KEY='sb_publishable_0kUk1iNmq-MDaQnGI2lv3A_kOWzYPlf';
+  let catalog=[];
+
+  function norm(v){
+    return String(v||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  }
+
+  async function loadCatalog(){
+    try{
+      const r=await fetch(SUPA_URL+'/rest/v1/catalog?select=name,aliases,category,description,image_query&active=eq.true&limit=500',{
+        headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}
+      });
+      if(r.ok) catalog=await r.json();
+    }catch(e){}
+  }
+
+  function findItem(q){
+    const n=norm(q); if(!n) return null;
+    let hit=catalog.find(x=>norm(x.name)===n);
+    if(hit) return hit;
+    hit=catalog.find(x=>String(x.aliases||'').split(',').some(a=>norm(a)===n));
+    if(hit) return hit;
+    hit=catalog.find(x=>norm(x.name).includes(n)||n.includes(norm(x.name)));
+    if(hit) return hit;
+    return catalog.find(x=>String(x.aliases||'').split(',').some(a=>{
+      const na=norm(a); return na && (na.includes(n)||n.includes(na));
+    }))||null;
+  }
+
+  function getMaterialInput(){
+    return Array.from(document.querySelectorAll('input')).find(i=>{
+      const p=(i.closest('.field')?.querySelector('label')?.textContent||'')+' '+(i.previousElementSibling?.textContent||'');
+      return /material/i.test(p) || /material/i.test(i.name||'') || /material/i.test(i.id||'');
+    }) || document.querySelector('input[type="text"]');
+  }
+
+  function getDescriptionField(){
+    return Array.from(document.querySelectorAll('textarea,input')).find(el=>{
+      const p=(el.closest('.field')?.querySelector('label')?.textContent||'')+' '+(el.previousElementSibling?.textContent||'');
+      return /descripci[oó]n/i.test(p) || /desc/i.test(el.name||'') || /desc/i.test(el.id||'');
+    });
+  }
+
+  function findCategoryElement(key){
+    return Array.from(document.querySelectorAll('[data-cat],button,label,div')).find(el=>{
+      const t=(el.textContent||'').trim().toLowerCase();
+      return t===key || t.endsWith(key) || t.includes(key);
+    });
+  }
+
+  function applyCatalog(item){
+    if(!item) return;
+    const desc=getDescriptionField();
+    if(desc && (!desc.value || desc.value.trim().length<25 || /oxigenoterapia|dispositivo para asegurar la via aerea/i.test(desc.value))){
+      desc.value=item.description||'';
+      desc.dispatchEvent(new Event('input',{bubbles:true}));
+      desc.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    if(item.category){
+      const el=findCategoryElement(item.category==='respiratorio'?'respiratorio':item.category==='circulatorio'?'circulatorio':item.category);
+      if(el && el.click) el.click();
+    }
+  }
+
+  function addSuggestionBox(input){
+    let box=document.getElementById('ma-catalog-suggest');
+    if(!box){
+      box=document.createElement('div');
+      box.id='ma-catalog-suggest';
+      box.style.cssText='position:absolute;z-index:99999;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.15);max-height:240px;overflow:auto;min-width:260px';
+      document.body.appendChild(box);
+    }
+    const q=norm(input.value);
+    if(q.length<2){box.style.display='none';return;}
+    const list=catalog.filter(x=>norm(x.name).includes(q)||norm(x.aliases||'').includes(q)).slice(0,8);
+    if(!list.length){box.style.display='none';return;}
+    const rect=input.getBoundingClientRect();
+    box.style.left=(rect.left+window.scrollX)+'px';
+    box.style.top=(rect.bottom+window.scrollY+4)+'px';
+    box.style.width=rect.width+'px';
+    box.innerHTML=list.map((x,i)=>'<button type="button" data-i="'+i+'" style="display:block;width:100%;text-align:left;padding:10px 12px;border:0;background:#fff;cursor:pointer">'+x.name+'</button>').join('');
+    box.style.display='block';
+    box.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{
+      const item=list[i];
+      input.value=item.name;
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+      input.dispatchEvent(new Event('change',{bubbles:true}));
+      applyCatalog(item);
+      box.style.display='none';
+    });
+  }
+
+  async function searchCommons(term){
+    const queries=[
+      term,
+      term+' medical device',
+      '"'+term+'"',
+      term.replace(/medical/ig,'').trim()
+    ];
+    for(const q of queries){
+      try{
+        const url='https://commons.wikimedia.org/w/api.php?'+new URLSearchParams({
+          action:'query',generator:'search',gsrsearch:q,gsrnamespace:'6',gsrlimit:'20',
+          prop:'imageinfo',iiprop:'url',iiurlwidth:'500',format:'json',origin:'*'
+        });
+        const r=await fetch(url); const j=await r.json();
+        const arr=Object.values(j.query?.pages||{}).filter(p=>p.imageinfo?.[0]?.thumburl);
+        if(arr.length) return arr.slice(0,8);
+      }catch(e){}
+    }
+    return [];
+  }
+
+  function findSearchButton(){
+    return Array.from(document.querySelectorAll('button')).find(b=>/buscar/i.test((b.textContent||'').trim()) && /imagen/i.test((b.closest('.field')?.querySelector('label')?.textContent||'')+' '+(b.parentElement?.previousElementSibling?.textContent||'')));
+  }
+
+  function getImageUrlField(){
+    return document.querySelector('#matImageUrl,input[name*="image_url"],input[id*="ImageUrl"]');
+  }
+
+  function renderChoices(items,anchor){
+    let wrap=document.getElementById('ma-image-choices');
+    if(!wrap){
+      wrap=document.createElement('div');
+      wrap.id='ma-image-choices';
+      wrap.style.cssText='display:grid;grid-template-columns:repeat(4,minmax(90px,1fr));gap:8px;margin-top:10px';
+      anchor.parentElement.appendChild(wrap);
+    }
+    if(!items.length){
+      wrap.innerHTML='<div style="grid-column:1/-1;padding:10px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb">No se encontró una imagen fiable. Usa Foto para hacer una imagen real del material.</div>';
+      return;
+    }
+    wrap.innerHTML=items.map((p,i)=>{
+      const u=p.imageinfo[0].thumburl;
+      return '<button type="button" data-u="'+u.replace(/"/g,'&quot;')+'" style="padding:4px;border:1px solid #cbd5e1;border-radius:10px;background:#fff"><img src="'+u+'" alt="opción '+(i+1)+'" style="width:100%;height:100px;object-fit:contain"></button>';
+    }).join('');
+    wrap.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+      const u=b.dataset.u;
+      const field=getImageUrlField(); if(field){field.value=u;field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));}
+      const imgs=Array.from(document.querySelectorAll('img')).filter(im=>/preview|photo/i.test(im.id||'') || im.closest('#ma-image-choices')===null);
+      const preview=imgs.find(im=>im.closest('.field') && /imagen/i.test(im.closest('.field')?.querySelector('label')?.textContent||'')) || document.querySelector('#photoPreview');
+      if(preview){preview.src=u;preview.classList.remove('hidden');}
+      wrap.querySelectorAll('button').forEach(x=>x.style.outline='none'); b.style.outline='3px solid #2563eb';
+    });
+  }
+
+  function enhance(){
+    const input=getMaterialInput();
+    if(input && !input.dataset.maEnhanced){
+      input.dataset.maEnhanced='1';
+      input.addEventListener('input',()=>addSuggestionBox(input));
+      input.addEventListener('change',()=>applyCatalog(findItem(input.value)));
+      input.addEventListener('blur',()=>setTimeout(()=>{const b=document.getElementById('ma-catalog-suggest');if(b)b.style.display='none'},200));
+      const item=findItem(input.value); if(item) applyCatalog(item);
+    }
+
+    const btn=findSearchButton();
+    if(btn && !btn.dataset.maEnhanced){
+      btn.dataset.maEnhanced='1';
+      btn.addEventListener('click',async(ev)=>{
+        ev.preventDefault(); ev.stopImmediatePropagation();
+        const inp=getMaterialInput(); const item=findItem(inp?.value||'');
+        if(item) applyCatalog(item);
+        const term=item?.image_query || inp?.value || '';
+        btn.disabled=true; const old=btn.textContent; btn.textContent='Buscando…';
+        const imgs=await searchCommons(term);
+        renderChoices(imgs,btn);
+        btn.disabled=false; btn.textContent=old;
+      },true);
+    }
+  }
+
+  loadCatalog().then(enhance);
+  new MutationObserver(()=>enhance()).observe(document.documentElement,{subtree:true,childList:true});
+  setInterval(enhance,1000);
+})();
+<\/script>`;
+
+   html = html.replace('</body>', catalogFix + '\n</body>');
    document.open();document.write(html);document.close();
  }catch(e){
    document.body.innerHTML='<div class="card"><strong>Error al cargar la aplicación</strong><p>'+String(e.message)+'</p></div>';
