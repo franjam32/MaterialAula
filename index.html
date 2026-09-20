@@ -104,13 +104,8 @@ function exportRows`
    // 6) Sin fotografía real, no mostrar un fonendo ficticio.
    html=html.replace(/:'🩺'/g,":'📷'");
 
-   document.open();document.write(html);document.close();
- }catch(e){
-   document.body.innerHTML='<div class="card"><strong>Error al cargar la aplicación</strong><p>'+String(e.message)+'</p></div>';
- }
-})();
-</script>
-
+   // Corrección visual persistente: se inserta dentro de la app final, no en el loader.
+   const colorFix = `
 <script>
 (function(){
   const COLORS={
@@ -122,41 +117,43 @@ function exportRows`
     const nodes=[];
     while(walker.nextNode()) nodes.push(walker.currentNode);
     nodes.forEach(function(n){
-      var s=n.nodeValue||'';
-      n.nodeValue=s.split('🔴').join(emoji).split('🔵').join(emoji);
+      let s=n.nodeValue||'';
+      s=s.split('🔴').join(emoji).split('🔵').join(emoji);
+      n.nodeValue=s;
     });
   }
   function paint(el,key){
     const x=COLORS[key];
-    if(el.tagName==='OPTION'){
-      var t=el.textContent||'';
-      t=t.replace('🔴','').replace('🔵','').trim();
-      el.textContent=x.emoji+' '+t;
-      return;
-    }
     replaceEmoji(el,x.emoji);
-    el.style.backgroundColor=x.bg;
-    el.style.color=x.fg;
-    el.style.borderColor=x.border;
+    el.style.setProperty('background-color',x.bg,'important');
+    el.style.setProperty('color',x.fg,'important');
+    el.style.setProperty('border-color',x.border,'important');
   }
   function fix(){
-    document.querySelectorAll('button,[data-cat],option,span,div,a,label').forEach(function(el){
-      const t=(el.textContent||'').trim();
-      if(!t || t.length>45) return;
-      if(t.toLowerCase().indexOf('respiratorio')>=0) paint(el,'respiratorio');
-      else if(t.toLowerCase().indexOf('circulatorio')>=0) paint(el,'circulatorio');
+    document.querySelectorAll('[data-cat],button,span,div,a,label,option').forEach(function(el){
+      const t=(el.textContent||'').trim().toLowerCase();
+      if(!t || t.length>60) return;
+      if(t.indexOf('respiratorio')>=0) paint(el,'respiratorio');
+      else if(t.indexOf('circulatorio')>=0) paint(el,'circulatorio');
     });
-    document.querySelectorAll('select').forEach(function(sel){
-      Array.from(sel.options).forEach(function(o){
-        const t=(o.textContent||'').trim().toLowerCase();
-        if(t.indexOf('respiratorio')>=0) paint(o,'respiratorio');
-        else if(t.indexOf('circulatorio')>=0) paint(o,'circulatorio');
-      });
+    document.querySelectorAll('select option').forEach(function(o){
+      const t=(o.textContent||'').replace('🔴','').replace('🔵','').trim();
+      if(t.toLowerCase().indexOf('respiratorio')>=0) o.textContent='🔵 '+t;
+      else if(t.toLowerCase().indexOf('circulatorio')>=0) o.textContent='🔴 '+t;
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fix); else fix();
   new MutationObserver(function(){requestAnimationFrame(fix)}).observe(document.documentElement,{subtree:true,childList:true});
+  setTimeout(fix,50); setTimeout(fix,300); setTimeout(fix,1000);
+})();
+<\/script>`;
+   html = html.replace('</body>', colorFix + '\n</body>');
+   document.open();document.write(html);document.close();
+ }catch(e){
+   document.body.innerHTML='<div class="card"><strong>Error al cargar la aplicación</strong><p>'+String(e.message)+'</p></div>';
+ }
 })();
 </script>
+
 </body>
 </html>
