@@ -1,9 +1,0 @@
-{
-  "name": "Material Aula",
-  "short_name": "Material Aula",
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#eef3f7",
-  "theme_color": "#1f6fbd",
-  "description": "Practica de aula para identificar, clasificar y registrar material sanitario por cajas QR."
-}
