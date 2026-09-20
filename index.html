@@ -244,21 +244,48 @@ function exportRows`
     });
   }
 
-  async function searchCommons(term){
+  async function searchCommons(term,item){
+    const baseName=(item?.name||term||'').trim();
+    const aliases=String(item?.aliases||'').split(',').map(s=>s.trim()).filter(Boolean);
     const queries=[
-      term,
-      term+' medical device',
-      '"'+term+'"',
-      term.replace(/medical/ig,'').trim()
-    ];
+      item?.image_query,
+      baseName+' medical device',
+      baseName+' medical equipment',
+      baseName+' healthcare equipment',
+      baseName+' dispositivo médico',
+      baseName+' material sanitario',
+      aliases[0]?aliases[0]+' medical device':null
+    ].filter(Boolean);
+
+    const wanted=norm(baseName+' '+String(item?.aliases||'')+' '+String(item?.image_query||''))
+      .split(' ').filter(w=>w.length>3);
+
+    const banned=['federal','register','gazette','journal','article','document','paper','seal','certificate','logo','book','page','title page','newspaper','magazine'];
+
     for(const q of queries){
       try{
         const url='https://commons.wikimedia.org/w/api.php?'+new URLSearchParams({
-          action:'query',generator:'search',gsrsearch:q,gsrnamespace:'6',gsrlimit:'20',
-          prop:'imageinfo',iiprop:'url',iiurlwidth:'500',format:'json',origin:'*'
+          action:'query',generator:'search',gsrsearch:q,gsrnamespace:'6',gsrlimit:'30',
+          prop:'imageinfo',iiprop:'url',iiurlwidth:'600',format:'json',origin:'*'
         });
         const r=await fetch(url); const j=await r.json();
-        const arr=Object.values(j.query?.pages||{}).filter(p=>p.imageinfo?.[0]?.thumburl);
+
+        let arr=Object.values(j.query?.pages||{}).filter(p=>{
+          const u=p.imageinfo?.[0]?.thumburl;
+          const title=(p.title||'').toLowerCase();
+          if(!u)return false;
+          if(/\.(pdf|djvu)$/i.test(title))return false;
+          if(banned.some(w=>title.includes(w)))return false;
+          return true;
+        }).map(p=>{
+          const title=norm(String(p.title||'').replace(/^file:/i,''));
+          let score=0;
+          wanted.forEach(w=>{if(title.includes(w))score+=3});
+          if(/mask|mascarilla|oxygen|venturi|medical|device|equipment|cannula|airway|catheter|splint|defibrillator|stretcher|suction|laryngoscope|syringe|tourniquet|bandage|stethoscope|oximeter/.test(title))score+=5;
+          if(/federal|register|gazette|journal|paper|document|book|title page|newspaper/.test(title))score-=20;
+          return {...p,_score:score};
+        }).filter(p=>p._score>0).sort((a,b)=>b._score-a._score);
+
         if(arr.length) return arr.slice(0,8);
       }catch(e){}
     }
@@ -316,9 +343,9 @@ function exportRows`
         ev.preventDefault(); ev.stopImmediatePropagation();
         const inp=getMaterialInput(); const item=findItem(inp?.value||'');
         if(item) applyCatalog(item);
-        const term=item?.image_query || inp?.value || '';
+        const term=inp?.value || item?.name || '';
         btn.disabled=true; const old=btn.textContent; btn.textContent='Buscando…';
-        const imgs=await searchCommons(term);
+        const imgs=await searchCommons(term,item);
         renderChoices(imgs,btn);
         btn.disabled=false; btn.textContent=old;
       },true);
