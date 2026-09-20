@@ -161,7 +161,7 @@ function exportRows`
 
   async function loadCatalog(){
     try{
-      const r=await fetch(SUPA_URL+'/rest/v1/catalog?select=name,aliases,category,description,image_query&active=eq.true&limit=500',{
+      const r=await fetch(SUPA_URL+'/rest/v1/catalog?select=name,aliases,category,description,image_query,default_image_url&active=eq.true&limit=500',{
         headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}
       });
       if(r.ok) catalog=await r.json();
@@ -247,34 +247,43 @@ function exportRows`
   async function searchCommons(term,item){
     const baseName=(item?.name||term||'').trim();
     const aliases=String(item?.aliases||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const curated=item?.default_image_url||'';
+
     const queries=[
       item?.image_query,
+      '"'+baseName+'" medical',
+      baseName+' oxygen mask medical',
       baseName+' medical device',
-      baseName+' medical equipment',
       baseName+' healthcare equipment',
-      baseName+' dispositivo médico',
-      baseName+' material sanitario',
-      aliases[0]?aliases[0]+' medical device':null
+      aliases[0]?'"'+aliases[0]+'" medical':null
     ].filter(Boolean);
 
     const wanted=norm(baseName+' '+String(item?.aliases||'')+' '+String(item?.image_query||''))
       .split(' ').filter(w=>w.length>3);
-
     const banned=['federal','register','gazette','journal','article','document','paper','seal','certificate','logo','book','page','title page','newspaper','magazine'];
+
+    let collected=[];
+    if(curated){
+      collected.push({
+        title:'Imagen validada: '+baseName,
+        imageinfo:[{thumburl:curated}],
+        _score:999,
+        _curated:true
+      });
+    }
 
     for(const q of queries){
       try{
         const url='https://commons.wikimedia.org/w/api.php?'+new URLSearchParams({
-          action:'query',generator:'search',gsrsearch:q,gsrnamespace:'6',gsrlimit:'30',
+          action:'query',generator:'search',gsrsearch:q,gsrnamespace:'6',gsrlimit:'40',
           prop:'imageinfo',iiprop:'url',iiurlwidth:'600',format:'json',origin:'*'
         });
-        const r=await fetch(url); const j=await r.json();
-
-        let arr=Object.values(j.query?.pages||{}).filter(p=>{
+        const rr=await fetch(url),j=await rr.json();
+        const arr=Object.values(j.query?.pages||{}).filter(p=>{
           const u=p.imageinfo?.[0]?.thumburl;
           const title=(p.title||'').toLowerCase();
           if(!u)return false;
-          if(/\.(pdf|djvu)$/i.test(title))return false;
+          if(/\\.(pdf|djvu)$/i.test(title))return false;
           if(banned.some(w=>title.includes(w)))return false;
           return true;
         }).map(p=>{
@@ -284,12 +293,18 @@ function exportRows`
           if(/mask|mascarilla|oxygen|venturi|medical|device|equipment|cannula|airway|catheter|splint|defibrillator|stretcher|suction|laryngoscope|syringe|tourniquet|bandage|stethoscope|oximeter/.test(title))score+=5;
           if(/federal|register|gazette|journal|paper|document|book|title page|newspaper/.test(title))score-=20;
           return {...p,_score:score};
-        }).filter(p=>p._score>0).sort((a,b)=>b._score-a._score);
-
-        if(arr.length) return arr.slice(0,8);
+        }).filter(p=>p._score>=3).sort((a,b)=>b._score-a._score);
+        collected=collected.concat(arr);
+        if(collected.length>=8)break;
       }catch(e){}
     }
-    return [];
+
+    const seen=new Set();
+    return collected.filter(p=>{
+      const u=p.imageinfo?.[0]?.thumburl||'';
+      if(!u||seen.has(u))return false;
+      seen.add(u); return true;
+    }).slice(0,8);
   }
 
   function findSearchButton(){
@@ -326,6 +341,70 @@ function exportRows`
     });
   }
 
+  function getAccessToken(){
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i)||'';
+        if(k.startsWith('sb-')&&k.endsWith('-auth-token')){
+          const v=JSON.parse(localStorage.getItem(k)||'{}');
+          return v.access_token||v.currentSession?.access_token||'';
+        }
+      }
+    }catch(e){}
+    return '';
+  }
+
+  async function loadMaterialImages(){
+    try{
+      const token=getAccessToken(); if(!token)return [];
+      const rr=await fetch(SUPA_URL+'/rest/v1/materials?select=name,image_url,image_path,location_id&limit=1000',{
+        headers:{apikey:SUPA_KEY,Authorization:'Bearer '+token}
+      });
+      return rr.ok?await rr.json():[];
+    }catch(e){return []}
+  }
+
+  async function hydrateSummaryImages(){
+    const mats=await loadMaterialImages();
+    const catByName=new Map(catalog.map(x=>[norm(x.name),x]));
+    const matByName=new Map(mats.map(x=>[norm(x.name),x]));
+
+    document.querySelectorAll('.card,article,[class*="material"],[class*="item"]').forEach(card=>{
+      const txt=(card.textContent||'').trim();
+      if(!txt||txt.length<3)return;
+      let match=null;
+      for(const m of mats){
+        if(txt.toLowerCase().includes(String(m.name||'').toLowerCase())){match=m;break}
+      }
+      if(!match)return;
+      const cat=catByName.get(norm(match.name));
+      const src=match.image_url||cat?.default_image_url||'';
+      if(!src)return;
+
+      let img=card.querySelector('img');
+      if(!img){
+        const candidate=Array.from(card.querySelectorAll('div,span')).find(el=>{
+          const t=(el.textContent||'').trim();
+          return t==='🩺'||t==='📷'||t==='🖼️'||(el.children.length===0&&el.clientWidth>=55&&el.clientWidth<=150&&el.clientHeight>=55&&el.clientHeight<=150);
+        });
+        if(candidate){
+          img=document.createElement('img');
+          candidate.textContent='';
+          candidate.appendChild(img);
+        }
+      }
+      if(img && img.dataset.maRealImage!=='1'){
+        img.dataset.maRealImage='1';
+        img.src=src;
+        img.alt=match.name;
+        img.style.width='100%';
+        img.style.height='100%';
+        img.style.objectFit='contain';
+        img.style.borderRadius='12px';
+      }
+    });
+  }
+
   function enhance(){
     const input=getMaterialInput();
     if(input && !input.dataset.maEnhanced){
@@ -352,8 +431,8 @@ function exportRows`
     }
   }
 
-  loadCatalog().then(enhance);
-  new MutationObserver(()=>enhance()).observe(document.documentElement,{subtree:true,childList:true});
+  loadCatalog().then(()=>{enhance();hydrateSummaryImages()});
+  new MutationObserver(()=>{enhance();setTimeout(hydrateSummaryImages,50)}).observe(document.documentElement,{subtree:true,childList:true});
   setInterval(enhance,1000);
 })();
 <\/script>`;
