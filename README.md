@@ -1,34 +1,32 @@
-# Material Aula
+# MaterialAula · Inventario sanitario UF0679
 
-App para una practica presencial donde los alumnos identifican y clasifican material sanitario entregado en cajas.
+Aplicación web colaborativa para inventariar material sanitario por grupos y ubicaciones físicas (cajas, mochilas, cajones, armarios, maletines, ambulancias, estanterías, etc.).
 
-## Flujo
+## Arquitectura
 
-1. El profesor configura la URL de Google Apps Script.
-2. La app genera QR para 6 cajas o mas.
-3. Cada alumno escanea el QR de su caja.
-4. El alumno registra material, unidades, estado, clasificacion por color, caducidad opcional, observaciones, descripcion e imagen/foto.
-5. Todo se guarda en Google Sheets.
-6. El profesor puede ver las entregas desde la app o directamente en Sheets.
+- **GitHub Pages**: interfaz web.
+- **Supabase**: base de datos, autenticación anónima, RLS, almacenamiento de fotografías y actualizaciones en tiempo real.
+- **QR estable por ubicación**: el código identifica la caja/mochila física, no al grupo.
+- **Wikimedia/Wikipedia**: búsqueda auxiliar de imágenes y descripciones, siempre editables.
 
-## Clasificacion por colores
+## Funciones
 
-- Rojo: circulatorio.
-- Azul: respiratorio.
-- Amarillo: pediatrico.
-- Verde: otros.
+- Acceso de grupo mediante nombre + PIN.
+- Acceso docente mediante PIN.
+- Clasificación: 🔴 Respiratorio · 🔵 Circulatorio · 🟡 Pediátrico · 🟢 Otros.
+- Cantidad, estado, caducidad opcional, fotografía, imagen sugerida y descripción editable.
+- Estados: Correcto / Deteriorado / Abierto / Incompleto.
+- Panel docente con grupos, ubicaciones, inventario e incidencias.
+- Exportación Excel y vista imprimible/PDF.
+- Trabajo simultáneo y actualización en tiempo real.
 
-## Google Sheets
+## Puesta en marcha
 
-1. Crea una hoja de calculo.
-2. Ve a `Extensiones` -> `Apps Script`.
-3. Pega `google-apps-script/Code.gs`.
-4. Implementa como `Aplicacion web`.
-5. Ejecutar como: `Yo`.
-6. Acceso: `Cualquier usuario`.
-7. Copia la URL del Web App.
-8. Pegala en la app, pestaña `Google Sheets`.
+1. En Supabase, activar **Authentication → Providers → Anonymous Sign-Ins**.
+2. En GitHub, activar **Settings → Pages → Deploy from a branch → main → /(root)** si Pages todavía no está activo.
+3. Abrir la URL pública de GitHub Pages y entrar como docente.
+4. Crear grupos y ubicaciones desde la propia aplicación.
 
-## GitHub Pages
+La versión anterior basada en Google Sheets se conserva en la rama `backup-google-sheets`.
 
-Publica el repositorio desde `Settings` -> `Pages` -> `Deploy from a branch`, rama `main`, carpeta `/root`.
+> La clave incluida en el frontend es únicamente la **publishable key** de Supabase. La autorización real se aplica con Auth + RLS. No se incluye ninguna secret/service-role key en el repositorio.
