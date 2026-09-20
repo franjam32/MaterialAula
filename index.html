@@ -438,6 +438,97 @@ function exportRows`
 <\/script>`;
 
    html = html.replace('</body>', catalogFix + '\n</body>');
+   const thumbFix = `
+<script>
+(function(){
+  let busy=false,queued=false;
+
+  async function refreshThumbs(){
+    if(busy){queued=true;return}
+    busy=true;
+    try{
+      if(typeof data==='undefined'||!Array.isArray(data.materials))return;
+
+      for(const m of data.materials){
+        let src='';
+        try{
+          if(typeof imageFor==='function') src=await imageFor(m);
+          else src=m.image_url||'';
+        }catch(e){src=m.image_url||''}
+        if(!src)continue;
+
+        // Elementos creados por la propia app para tarjetas y tablas.
+        document.querySelectorAll('[data-img="'+CSS.escape(String(m.id))+'"]').forEach(el=>{
+          el.innerHTML='<img src="'+src.replace(/"/g,'&quot;')+'" alt="'+String(m.name||'').replace(/"/g,'&quot;')+'">';
+          const img=el.querySelector('img');
+          if(img){
+            img.style.width='100%';img.style.height='100%';img.style.objectFit='contain';
+            img.style.background='#fff';
+          }
+        });
+
+        // Resumen/tarjetas: sustituir cualquier miniatura genérica aunque no tenga data-img.
+        document.querySelectorAll('article,.card').forEach(card=>{
+          const txt=(card.textContent||'').toLowerCase();
+          if(!txt.includes(String(m.name||'').toLowerCase()))return;
+          let box=card.querySelector('.thumb,[class*="thumb"],[class*="image"]');
+          if(box && !box.querySelector('img')){
+            box.textContent='';
+            const im=document.createElement('img');
+            im.src=src;im.alt=m.name||'Material sanitario';
+            im.style.cssText='width:100%;height:100%;object-fit:contain;background:#fff;border-radius:10px';
+            box.appendChild(im);
+          }
+        });
+
+        // Inventario/listados tabulares: añadir columna de miniatura si la fila no la trae.
+        document.querySelectorAll('table tbody tr').forEach(tr=>{
+          const txt=(tr.textContent||'').toLowerCase();
+          if(!txt.includes(String(m.name||'').toLowerCase()))return;
+          if(tr.querySelector('[data-ma-thumb="'+CSS.escape(String(m.id))+'"]'))return;
+          if(tr.querySelector('[data-img="'+CSS.escape(String(m.id))+'"]'))return;
+          const td=document.createElement('td');
+          td.setAttribute('data-ma-thumb',String(m.id));
+          td.style.cssText='width:58px;min-width:58px;padding:6px';
+          td.innerHTML='<div style="width:46px;height:46px;border-radius:9px;overflow:hidden;background:#eef2f6;display:grid;place-items:center"><img src="'+src.replace(/"/g,'&quot;')+'" alt="'+String(m.name||'').replace(/"/g,'&quot;')+'" style="width:100%;height:100%;object-fit:contain;background:#fff"></div>';
+          tr.insertBefore(td,tr.firstElementChild);
+        });
+      }
+
+      // Cabecera de tablas que ahora tienen miniatura añadida.
+      document.querySelectorAll('table').forEach(table=>{
+        if(!table.querySelector('tbody [data-ma-thumb]'))return;
+        const hr=table.querySelector('thead tr');
+        if(hr&&!hr.querySelector('[data-ma-thumb-head]')){
+          const th=document.createElement('th');
+          th.setAttribute('data-ma-thumb-head','1');
+          th.textContent='Imagen';
+          th.style.width='58px';
+          hr.insertBefore(th,hr.firstElementChild);
+        }
+      });
+    }finally{
+      busy=false;
+      if(queued){queued=false;setTimeout(refreshThumbs,30)}
+    }
+  }
+
+  function schedule(){
+    clearTimeout(schedule.t);
+    schedule.t=setTimeout(refreshThumbs,70);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule);else schedule();
+  const obs=new MutationObserver(schedule);
+  obs.observe(document.documentElement,{subtree:true,childList:true});
+  setTimeout(refreshThumbs,150);
+  setTimeout(refreshThumbs,600);
+  setTimeout(refreshThumbs,1500);
+  setInterval(refreshThumbs,4000);
+})();
+<\/script>`;
+
+   html = html.replace('</body>', thumbFix + '\n</body>');
    document.open();document.write(html);document.close();
  }catch(e){
    document.body.innerHTML='<div class="card"><strong>Error al cargar la aplicación</strong><p>'+String(e.message)+'</p></div>';
