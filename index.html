@@ -42,6 +42,17 @@ body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",
      "$('#invtable').innerHTML=table(ms);setTimeout(hydrateImages,0)})}"
    );
 
+   // Renderizar image_url directamente en tarjetas y tablas.
+   // Las fotos subidas a Storage siguen usando hydrateImages() para obtener una URL firmada.
+   html=html.replace(
+     '<div class="thumb" style="width:46px;height:46px" data-img="\${m.id}"></div>',
+     '\${m.image_url?\`<div class="thumb" style="width:46px;height:46px"><img src="\${esc(m.image_url)}" alt="\${esc(m.name)}"></div>\`:\`<div class="thumb" style="width:46px;height:46px" data-img="\${m.id}"></div>\`}'
+   );
+   html=html.replace(
+     '<div class="thumb" data-img="\${m.id}"></div><div><h3>',
+     '\${m.image_url?\`<div class="thumb"><img src="\${esc(m.image_url)}" alt="\${esc(m.name)}"></div>\`:\`<div class="thumb" data-img="\${m.id}"></div>\`}<div><h3>'
+   );
+
    // 2) Catálogo técnico: nombres, alias, descripción específica y término de imagen.
    const helper=`
 function normText(v){return String(v||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim()}
