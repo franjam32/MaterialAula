@@ -110,5 +110,53 @@ function exportRows`
  }
 })();
 </script>
+
+<script>
+(function(){
+  const COLORS={
+    respiratorio:{emoji:'🔵',bg:'#dbeafe',fg:'#1d4ed8',border:'#60a5fa'},
+    circulatorio:{emoji:'🔴',bg:'#fee2e2',fg:'#b91c1c',border:'#f87171'}
+  };
+  function replaceEmoji(el,emoji){
+    const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+    const nodes=[];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function(n){
+      var s=n.nodeValue||'';
+      n.nodeValue=s.split('🔴').join(emoji).split('🔵').join(emoji);
+    });
+  }
+  function paint(el,key){
+    const x=COLORS[key];
+    if(el.tagName==='OPTION'){
+      var t=el.textContent||'';
+      t=t.replace('🔴','').replace('🔵','').trim();
+      el.textContent=x.emoji+' '+t;
+      return;
+    }
+    replaceEmoji(el,x.emoji);
+    el.style.backgroundColor=x.bg;
+    el.style.color=x.fg;
+    el.style.borderColor=x.border;
+  }
+  function fix(){
+    document.querySelectorAll('button,[data-cat],option,span,div,a,label').forEach(function(el){
+      const t=(el.textContent||'').trim();
+      if(!t || t.length>45) return;
+      if(t.toLowerCase().indexOf('respiratorio')>=0) paint(el,'respiratorio');
+      else if(t.toLowerCase().indexOf('circulatorio')>=0) paint(el,'circulatorio');
+    });
+    document.querySelectorAll('select').forEach(function(sel){
+      Array.from(sel.options).forEach(function(o){
+        const t=(o.textContent||'').trim().toLowerCase();
+        if(t.indexOf('respiratorio')>=0) paint(o,'respiratorio');
+        else if(t.indexOf('circulatorio')>=0) paint(o,'circulatorio');
+      });
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fix); else fix();
+  new MutationObserver(function(){requestAnimationFrame(fix)}).observe(document.documentElement,{subtree:true,childList:true});
+})();
+</script>
 </body>
 </html>
