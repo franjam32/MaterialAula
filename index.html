@@ -27,10 +27,8 @@ body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",
    let html=await new Response(stream).text();
 
    // 1) Colores acordados: Respiratorio azul · Circulatorio rojo.
-   html=html.replace(
-     "const catMeta={respiratorio:{label:'Respiratorio',class:'red',dot:'🔴'},circulatorio:{label:'Circulatorio',class:'blue',dot:'🔵'}",
-     "const catMeta={respiratorio:{label:'Respiratorio',class:'blue',dot:'🔵'},circulatorio:{label:'Circulatorio',class:'red',dot:'🔴'}"
-   );
+   html=html.replace(/(respiratorio\\s*:\\s*\\{[^}]*class\\s*:\\s*)['"]red['"](\\s*,\\s*dot\\s*:\\s*)['"]🔴['"]/g,"$1'blue'$2'🔵'");
+   html=html.replace(/(circulatorio\\s*:\\s*\\{[^}]*class\\s*:\\s*)['"]blue['"](\\s*,\\s*dot\\s*:\\s*)['"]🔵['"]/g,"$1'red'$2'🔴'");
 
    // 2) Catálogo técnico: nombres, alias, descripción específica y término de imagen.
    const helper=`
